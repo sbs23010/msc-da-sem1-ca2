@@ -10,6 +10,7 @@ from plotly.subplots import make_subplots
 import panel as pn
 pn.extension('plotly')
 import hvplot.pandas
+import holoviews as hv
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, LogisticRegression
@@ -164,9 +165,11 @@ def get_model_visualization_results(joined_df, model, scaler, gridsearchcv, feat
     test_scores = []
     
     # Make 2 subplots
-    fig = make_subplots(rows=1, cols=2, vertical_spacing=0.25)
+#     fig = make_subplots(rows=1, cols=2, vertical_spacing=0.25)
     scatter_scores = []
-    
+    results = []
+    scatter_plots = []
+    heatmap_plots = []
     # Loop through each building/construction type
     building_types = joined_df.columns[-5:]
     for dep_col in building_types:              
@@ -218,52 +221,40 @@ def get_model_visualization_results(joined_df, model, scaler, gridsearchcv, feat
         test_score = regression_model.score(X_test, y_test)
         train_scores.append(train_score)
         test_scores.append(test_score)
+        results.extend([
+            {'Building Type': dep_col, 'Score Type': 'Training', 'Score': train_score},
+            {'Building Type': dep_col, 'Score Type': 'Test', 'Score': test_score}
+        ])
         
-        # Append the scatter plot to the list
-        if model.__class__.__name__ not in clf_models:
-            scatter_scores.append(go.Scatter(x=y_test, y=y_pred, mode='markers', name=dep_col, legendgroup='Predicted Values'))        
-        else:
-            # Calculate confusion matrix
+        # Check if Regression or Classification model is being used
+        if model.__class__.__name__ in clf_models:
+            # Calculate confusion matrix for the classifier
             cm = confusion_matrix(y_test, y_pred)
+            cm_df = pd.DataFrame(cm, index=['Actual 0', 'Actual 1'], columns=['Predicted 0', 'Predicted 1'])
+            heatmap_plots.append(cm_df.hvplot.heatmap(label=dep_col, width=500))
+        else:
+            # Scatter plot for regression models to show actual and predicted values
+            scatter_df = pd.DataFrame({'y_test': y_test, 'y_pred': y_pred})
+            scatter_plots.append(scatter_df.hvplot.scatter(x='y_test', y='y_pred', label=dep_col, title='Actual vs Predicted Values', width=900))
+            perfect_line = pd.DataFrame({'y_test': y_test, 'y_pred': y_test})
+            scatter_plots.append(perfect_line.hvplot.line(x='y_test', y='y_pred', width=900))
 
-    # Plot the scores
-    trace1_group1 = go.Bar(name=f'Training-{regression_model}', x=building_types, y=train_scores, legendgroup="Scores")
-    trace1_group2 = go.Bar(name=f'Testing-{regression_model}', x=building_types, y=test_scores, legendgroup="Scores")
-    
-    # Add traces to the first subplot
-    fig.add_trace(trace1_group1, row=1, col=1)
-    fig.add_trace(trace1_group2, row=1, col=1)
-    
-    # Scatter plot for linear regression and heatmap for Logistic regression
-    if model.__class__.__name__ not in clf_models:
-        # Add a line showing what perfect prediction should look like
-        trace2_group2 = go.Scatter(x=y_test, y=y_test, mode='lines', name='Perfect Prediction', legendgroup='Predicted Values')
+    result_df = pd.DataFrame(results)
+    fig1 = result_df.hvplot.bar(x='Building Type', y='Score', by='Score Type', title=f"Model:{model}, Scaler:{scaler}, GridSearchCV:{gridsearchcv}, Features:{feature}", width=1000)
+#     fig1.opts(xrotation=45)  # Rotate x-axis labels by 45 degrees
 
-        # Add each Scatter plot to the second sub-plot
-        for scatter_score in scatter_scores:
-            fig.add_trace(scatter_score, row=1, col=2)
-        fig.add_trace(trace2_group2, row=1, col=2)
-        
-        # Update layout to give separate titles to each subplot
-        fig.update_yaxes(title_text='R2 Score', row=1, col=1)
-        fig.update_yaxes(title_text='Target Value', row=1, col=2)
-        fig.update_xaxes(title_text='Predicted Value', row=1, col=2)
-    else: # Plot confusion matrix for one of the building types
-        # Create heatmap using Plotly
-        fig.add_trace(go.Heatmap(z=cm, zmin=0, zmax=1, colorscale='Blues', name=dep_col), row=1, col=2)
-        fig.update_yaxes(title_text='Actual Classification', row=1, col=2)
-        fig.update_xaxes(title_text='Predicted Classification', row=1, col=2)
-    
-    # For grouped bars
-    fig.update_layout(barmode='group',
-                      title_text=f"Model:{model}, Scaler:{scaler}, GridSearchCV:{gridsearchcv}, Features:{feature}",
-                      height=550, width=1200,
-                      legend=dict(
-                        orientation='h',  # Set legend orientation to vertical
-                        x=0.25,            # Adjust the x position of the legend
-                        y=-0.7            # Adjust the y position of the legend
-                    ))
-    return fig
+    # Check whether regression or classification model
+    if model.__class__.__name__ in clf_models:
+        # Plot heatmaps for confusion matrix
+        fig2 = heatmap_plots[0]
+        for plot in heatmap_plots[1:]:
+            fig2 += plot
+    else:
+        # Plot scatter the actual and predicted values
+        fig2 = scatter_plots[0]
+        for plot in scatter_plots[1:]:
+            fig2 *= plot
+    return hv.Layout(fig1 + fig2).cols(1)
 
 # Function to search Reddit posts
 def search_reddit(headers, subreddit, keyword):
