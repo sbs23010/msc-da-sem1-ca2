@@ -12,6 +12,8 @@ pn.extension('plotly')
 import hvplot.pandas
 import holoviews as hv
 
+from scipy import stats
+from sklearn.feature_selection import SelectKBest, f_regression
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
