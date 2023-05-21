@@ -32,6 +32,7 @@ from dotenv import load_dotenv
 from os import getenv
 import requests
 import time
+from io import StringIO
 
 import nltk
 from nltk.corpus import stopwords
@@ -178,7 +179,10 @@ def get_model_visualization_results(joined_df, model, scaler, gridsearchcv, feat
         # Check if Classification model is chosen.
         if model.__class__.__name__ in clf_models:
             # Compare the value with previous quarter, and set it to 1 if true else to 0
-            y = (joined_df[dep_col] > joined_df[dep_col].shift()).astype('int').fillna(0).values
+            dep_col_df = joined_df[['Quarter', dep_col]].drop_duplicates()
+            dep_col_df['target'] = (dep_col_df[dep_col] > dep_col_df[dep_col].shift()).astype('int').fillna(0)
+            joined_df = joined_df.merge(dep_col_df, how='left')
+            y = joined_df['target']
         else:
             # Set the target type to building type
             y = joined_df[dep_col]
@@ -399,4 +403,16 @@ def get_sentiment(text):
     sentiment = classify_textblob_polarity(blob.sentiment.polarity)
     return sentiment
 
+# Function to convert quarter to datetime dtype
+def convert_quarter_to_dt(quarter):
+    year, q = quarter.split('Q')
+    month = f"{int(q)*3:02}"
+    return datetime.strptime(f"{year}-{month}-30", "%Y-%m-%d")
 
+# Function to cast to float
+def cast_to_float(x):
+    try:
+        x = str(x).split(' ')[0]
+        return float(x)
+    except ValueError:
+        return None
