@@ -237,16 +237,16 @@ def get_model_visualization_results(joined_df, model, scaler, gridsearchcv, feat
             # Calculate confusion matrix for the classifier
             cm = confusion_matrix(y_test, y_pred)
             cm_df = pd.DataFrame(cm, index=['Actual 0', 'Actual 1'], columns=['Predicted 0', 'Predicted 1'])
-            heatmap_plots.append(cm_df.hvplot.heatmap(label=dep_col, width=400))
+            heatmap_plots.append(cm_df.hvplot.heatmap(label=dep_col, width=600).opts(default_tools=[]))
         else:
             # Scatter plot for regression models to show actual and predicted values
             scatter_df = pd.DataFrame({'y_test': y_test, 'y_pred': y_pred})
-            scatter_plots.append(scatter_df.hvplot.scatter(x='y_test', y='y_pred', label=dep_col, title='Actual vs Predicted Values', width=800))
+            scatter_plots.append(scatter_df.hvplot.scatter(x='y_test', y='y_pred', label=dep_col, title='Actual vs Predicted Values', width=800).opts(default_tools=[]))
             perfect_line = pd.DataFrame({'y_test': y_test, 'y_pred': y_test})
-            scatter_plots.append(perfect_line.hvplot.line(x='y_test', y='y_pred', width=800))
+            scatter_plots.append(perfect_line.hvplot.line(x='y_test', y='y_pred', width=800).opts(default_tools=[]))
 
     result_df = pd.DataFrame(results)
-    fig1 = result_df.hvplot.bar(x='Building Type', y='Score', by='Score Type', title=f"Model:{model}, Scaler:{scaler}, GridSearchCV:{gridsearchcv}, Features:{feature}", width=800)
+    fig1 = result_df.hvplot.bar(x='Building Type', y='Score', by='Score Type', title=f"Model:{model}, Scaler:{scaler}, GridSearchCV:{gridsearchcv}, Features:{feature}", width=820).opts(legend_position='top_left', default_tools=[])
 #     fig1.opts(xrotation=45)  # Rotate x-axis labels by 45 degrees
 
     # Check whether regression or classification model
@@ -273,10 +273,10 @@ def get_model_visualization_results(joined_df, model, scaler, gridsearchcv, feat
             by='Material', 
             width=800,
             title='Construction Material Price Indices (base 2015=100)'
-        )
+        ).opts(default_tools=[])
     
     # To plot the production in construction types
-    targets_df = joined_df[building_types]
+    targets_df = joined_df[building_types].copy()
     targets_df['Quarter'] = joined_df['Quarter'].apply(convert_quarter_to_dt)
     targets_plot = targets_df.drop_duplicates().melt(
         id_vars=['Quarter'], 
@@ -288,7 +288,7 @@ def get_model_visualization_results(joined_df, model, scaler, gridsearchcv, feat
             by='Construction Type', 
             width=800,
             title='Production in Construction by Types (base 2015=100)'
-        )
+        ).opts(default_tools=[])
     
     return hv.Layout(indep_features_plot + targets_plot + fig1 + fig2).cols(2)
 
