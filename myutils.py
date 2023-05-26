@@ -11,6 +11,7 @@ import panel as pn
 pn.extension('plotly')
 import hvplot.pandas
 import holoviews as hv
+import pandas_profiling
 
 from scipy import stats
 from sklearn.feature_selection import SelectKBest, f_regression
@@ -163,14 +164,8 @@ def get_model_visualization_results(joined_df, model, scaler, gridsearchcv, feat
     # Define indepedent features
     X = joined_df.iloc[:, :-6]  # All Construction materials
     
-    # Initiate lists to store all train and test scores for visualization
-    train_scores =[]
-    test_scores = []
-    
-    # Make 2 subplots
-#     fig = make_subplots(rows=1, cols=2, vertical_spacing=0.25)
-    scatter_scores = []
     results = []
+    display_scores = []
     scatter_plots = []
     heatmap_plots = []
     # Loop through each building/construction type
@@ -225,12 +220,21 @@ def get_model_visualization_results(joined_df, model, scaler, gridsearchcv, feat
         # Evaluate the performance of the model using the testing set
         train_score = regression_model.score(X_train, y_train)
         test_score = regression_model.score(X_test, y_test)
-        train_scores.append(train_score)
-        test_scores.append(test_score)
+        
+        # For Bar plot of training and testing scores
         results.extend([
             {'Building Type': dep_col, 'Score Type': 'Training', 'Score': train_score},
             {'Building Type': dep_col, 'Score Type': 'Test', 'Score': test_score}
         ])
+        
+        # For overall Model result in table
+        display_scores.append({
+            'Model': model,
+            'Target': dep_col,
+            'Scaler': scaler,
+            'Training Score': round(train_score, 2),
+            'Testing Score': round(test_score, 2)
+        })
         
         # Check if Regression or Classification model is being used
         if model.__class__.__name__ in clf_models:
@@ -245,9 +249,13 @@ def get_model_visualization_results(joined_df, model, scaler, gridsearchcv, feat
             perfect_line = pd.DataFrame({'y_test': y_test, 'y_pred': y_test})
             scatter_plots.append(perfect_line.hvplot.line(x='y_test', y='y_pred', width=800).opts(default_tools=[]))
 
+    # Display table of Model results
+    display(pd.DataFrame(display_scores))
+    
+    # Display bar plot of training and testing scores
     result_df = pd.DataFrame(results)
     fig1 = result_df.hvplot.bar(x='Building Type', y='Score', by='Score Type', title=f"Model:{model}, Scaler:{scaler}, GridSearchCV:{gridsearchcv}, Features:{feature}", width=820).opts(legend_position='top_left', default_tools=[])
-#     fig1.opts(xrotation=45)  # Rotate x-axis labels by 45 degrees
+    fig1.opts(xrotation=30)  # Rotate x-axis labels by 45 degrees
 
     # Check whether regression or classification model
     if model.__class__.__name__ in clf_models:
